@@ -6,6 +6,11 @@ if (!isNode) {
   // Maximum number of individual IPs to render before switching to range mode
   const MAX_RENDERABLE_IPS = 50000;
 
+  window.addEventListener('DOMContentLoaded', () => {
+    inputA.value = '';
+    inputB.value = '';
+  });
+
   const inputA = document.getElementById('inputA');
   const inputB = document.getElementById('inputB');
   const results = document.getElementById('results');
