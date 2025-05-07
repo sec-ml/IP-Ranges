@@ -279,6 +279,6 @@ if (!isNode) {
           })
         : selectedList;
 
-    results.textContent = output.join('\n');
+    results.innerHTML = output.join("<br />");
   }
 }
