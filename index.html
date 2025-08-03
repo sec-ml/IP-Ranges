@@ -37,11 +37,21 @@
         cursor: pointer;
         font-size: 14px;
       }
-      
+
       .mode-btn.selected,
       .filter-btn.selected {
         background: #d0eaff;
         font-weight: bold;
+      }
+
+      .mode-btn.off {
+        background: #ff6969;
+        color: #ededed;
+      }
+
+      .mode-btn.on {
+        background: #18b041;
+        color: #ffffff;
       }
 
       .mode-btn:disabled,
@@ -53,13 +63,32 @@
   </head>
   <body>
     <h1>IP Address Intersection</h1>
-    <p>Looks for IPs/Ranges that are only in set A, set B, or are in both A/B.</p>
+    <p>
+      Looks for IPs/Ranges that are only in set A, set B, or are in both A/B.
+    </p>
     <p>Syntax:</p>
-    <p>Single IPs, one or multiple per line<br />Ranges, hypen-separated (with or without spaces), one or multiple per line<br />CIDR ranges (one or multiple per line)<br />Ranges or IPs can be space or comma separated</p>
-    <p><strong>Note: this runs entirely in-browser. No data is saved or transmitted.</strong></p>
+    <p>
+      Single IPs, one or multiple per line<br />Ranges, hypen-separated (with or
+      without spaces), one or multiple per line<br />CIDR ranges (one or
+      multiple per line)<br />Ranges or IPs can be space or comma separated
+    </p>
+    <p>
+      <strong
+        >Note: this runs entirely in-browser. No data is saved or
+        transmitted.</strong
+      >
+    </p>
     <div class="container">
-      <textarea id="inputA" autocomplete="off" placeholder="Paste IPs here (List A)"></textarea>
-      <textarea id="inputB" autocomplete="off" placeholder="Paste IPs here (List B)"></textarea>
+      <textarea
+        id="inputA"
+        autocomplete="off"
+        placeholder="Paste IPs here (List A)"
+      ></textarea>
+      <textarea
+        id="inputB"
+        autocomplete="off"
+        placeholder="Paste IPs here (List B)"
+      ></textarea>
     </div>
     <div style="margin-top: 20px">
       <label><strong>Show addresses:</strong></label>
@@ -71,7 +100,12 @@
       <label><strong>Display output as:</strong></label>
       <button id="btnList" class="mode-btn selected" title="">IP List</button>
       <button id="btnRanges" class="mode-btn">IP Ranges</button>
-  </div>
+    </div>
+    <div style="margin-top: 10px">
+      <button id="allowTextTokens" class="mode-btn off" type="button">
+        + Compare Strings
+      </button>
+    </div>
     <div class="results" id="results"></div>
     <script src="ip-ranges.js"></script>
   </body>
