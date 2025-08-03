@@ -3,12 +3,24 @@ const isNode = typeof window === "undefined";
 
 // Run only if in browser
 if (!isNode) {
+  // TODO:hn - see note.
+  let allowTextTokens;
+
   // Maximum number of individual IPs to render before switching to range mode
   const MAX_RENDERABLE_IPS = 50000;
 
   window.addEventListener("DOMContentLoaded", () => {
     inputA.value = "";
     inputB.value = "";
+
+    // TODO:hn - see note.
+    allowTextTokens = document.getElementById("allowTextTokens");
+
+    allowTextTokens.addEventListener("click", () => {
+      const isOn = allowTextTokens.classList.toggle("on");
+      allowTextTokens.classList.toggle("off", !isOn);
+      compareLists(); // run comparison on toggle
+    });
 
     document.addEventListener("keydown", (e) => {
       // check cmd/ctrl+A
@@ -185,7 +197,13 @@ if (!isNode) {
       return [];
     }
 
-    return isValidIP(token) ? [token] : [];
+    // TODO:hn - see note. revert and redo. Was:
+    // return isValidIP(token) ? [token] : [];
+    if (isValidIP(token)) return [token];
+    if (allowTextTokens?.classList.contains("on")) return [token];
+
+    return [];
+    // end TODO:hn
   }
 
   function tokenizeLine(line) {
@@ -203,6 +221,18 @@ if (!isNode) {
     while ((match = pattern.exec(line)) !== null) {
       tokens.push(match[0].trim());
     }
+
+    // this works, but revert and redo. Processes all data a second time looking for non-IPs
+    // should be done in one pass, based on checkbox state. TODO:hn
+    if (allowTextTokens?.classList.contains("on")) {
+      const extras = line
+        .split(/[\s,]+/)
+        .map((t) => t.trim())
+        .filter((t) => t && !tokens.includes(t)); // skip duplicates
+      tokens.push(...extras);
+    }
+    // end TODO:hn
+
     return tokens;
   }
 
