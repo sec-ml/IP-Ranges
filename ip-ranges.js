@@ -9,6 +9,29 @@ if (!isNode) {
   window.addEventListener("DOMContentLoaded", () => {
     inputA.value = "";
     inputB.value = "";
+
+    document.addEventListener("keydown", (e) => {
+      // check cmd/ctrl+A
+      const isCtrlA = (e.metaKey || e.ctrlKey) && e.key === "a";
+
+      if (isCtrlA) {
+        const active = document.activeElement;
+        // check page focus - only want to select results if not focused on input
+        const isInputFocused = active === inputA || active === inputB;
+
+        if (!isInputFocused) {
+          // if input textarea not selected, prevent default select all action
+          e.preventDefault();
+
+          // create selection range. ref: https://developer.mozilla.org/en-US/docs/Web/API/Document/createRange
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(results);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+    });
   });
 
   const inputA = document.getElementById("inputA");
