@@ -352,9 +352,10 @@ if (!isNode) {
               return true; // This is a string
             }
           }
-          // even if matched, check if it would be a string (e.g., invalid range)
-          return wouldBeString(part);
-        });
+          // if part is covered by a matched token, don't check it individually
+          // only check full matched tokens to see if they're invalid
+          return false;
+        }) || matchedTokens.some((token) => wouldBeString(token));
       });
     };
     
