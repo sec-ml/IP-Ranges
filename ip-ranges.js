@@ -317,9 +317,11 @@ if (!isNode) {
   function compareLists() {
     // auto-detect strings and enable string mode if needed
     const detectStringsInInput = (input) => {
-      return input.split("\n").some((line) => {
+      return input.split("\n").some((line, index) => {
         const normalizedLine = line.replace(/,/g, " ").trim();
         if (!normalizedLine) return false;
+        // skip title lines (first line starting with '#')
+        if (index === 0 && normalizedLine.startsWith("#")) return false;
         
         // get tokens that match IP patterns (what tokenizeLine returns when string mode is off)
         const ipPattern = new RegExp(
@@ -380,15 +382,32 @@ if (!isNode) {
     }
     skipAutoDetectStrings = false; // reset flag after this recalculation
 
-    const listA = inputA.value
-      .split("\n")
-      .flatMap((line) => tokenizeLine(line.replace(/,/g, " ").trim()))
-      .flatMap((token) => expandIPLine(token));
+    // extract titles from first line if it starts with '#'
+    const extractTitle = (input) => {
+      const lines = input.split("\n");
+      if (lines.length > 0 && lines[0].trim().startsWith("#")) {
+        return lines[0].trim().substring(1).trim() || null;
+      }
+      return null;
+    };
 
-    const listB = inputB.value
-      .split("\n")
-      .flatMap((line) => tokenizeLine(line.replace(/,/g, " ").trim()))
-      .flatMap((token) => expandIPLine(token));
+    const titleA = extractTitle(inputA.value) || "A";
+    const titleB = extractTitle(inputB.value) || "B";
+
+    // process input, skipping title lines
+    const processInput = (input) => {
+      const lines = input.split("\n");
+      // skip first line if it's a title line
+      const dataLines = lines.length > 0 && lines[0].trim().startsWith("#")
+        ? lines.slice(1)
+        : lines;
+      return dataLines
+        .flatMap((line) => tokenizeLine(line.replace(/,/g, " ").trim()))
+        .flatMap((token) => expandIPLine(token));
+    };
+
+    const listA = processInput(inputA.value);
+    const listB = processInput(inputB.value);
 
     const setA = new Set(listA);
     const setB = new Set(listB);
@@ -425,13 +444,13 @@ if (!isNode) {
 
     document.getElementById(
       "btnOnlyA"
-    ).textContent = `Only in A (${onlyA.length})`;
+    ).textContent = `Only in ${titleA} (${onlyA.length})`;
     document.getElementById(
       "btnInBoth"
-    ).textContent = `In A and B (${inBoth.length})`;
+    ).textContent = `In ${titleA} and ${titleB} (${inBoth.length})`;
     document.getElementById(
       "btnOnlyB"
-    ).textContent = `Only in B (${onlyB.length})`;
+    ).textContent = `Only in ${titleB} (${onlyB.length})`;
 
     const selectedList =
       filterMode === "only-a"
