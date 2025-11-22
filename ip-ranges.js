@@ -5,6 +5,7 @@ const isNode = typeof window === "undefined";
 if (!isNode) {
   // TODO:hn - see note.
   let allowTextTokens;
+  let skipAutoDetectStrings = false; // Skip auto-detection when user manually toggles
 
   // Maximum number of individual IPs to render before switching to range mode
   const MAX_RENDERABLE_IPS = 50000;
@@ -19,6 +20,7 @@ if (!isNode) {
     allowTextTokens.addEventListener("click", () => {
       const isOn = allowTextTokens.classList.toggle("on");
       allowTextTokens.classList.toggle("off", !isOn);
+      skipAutoDetectStrings = true; // Skip auto-detection for this recalculation
       compareLists(); // run comparison on toggle
     });
 
@@ -149,6 +151,43 @@ if (!isNode) {
     ].join(".");
   }
 
+  function wouldBeString(token) {
+    // check if token would return [] from expandIPLine when string mode is OFF
+    if (token.includes("/")) {
+      const [ip, bits] = token.split("/");
+      if (!isValidIP(ip)) return true;
+      const maskBits = parseInt(bits, 10);
+      if (isNaN(maskBits) || maskBits < 0 || maskBits > 32) return true;
+      return false; // valid CIDR
+    }
+
+    const rangeRegex = /^(.+?)\s*-\s*(.+)$/;
+    const match = token.match(rangeRegex);
+    if (match) {
+      const start = match[1].trim();
+      const end = match[2].trim();
+      const hasSpaces = /\s+-\s+/.test(token);
+      
+      if (isValidIP(start) && isValidIP(end)) {
+        return false; // valid IP range
+      }
+      if (isValidIP(start) && /^\d{1,3}$/.test(end)) {
+        const endOctet = parseInt(end, 10);
+        if (endOctet >= 0 && endOctet <= 255) {
+          return false; // valid IP range with octet
+        }
+      }
+      // if has spaces and not valid range, can't be hostname
+      if (hasSpaces) return true;
+      // if no spaces and not valid range, would be string
+      return true;
+    }
+
+    // not a valid IP, would be string
+    if (!isValidIP(token)) return true;
+    return false; // valid IP
+  }
+
   function expandIPLine(token) {
     if (token.includes("/")) {
       const [ip, bits] = token.split("/");
@@ -276,6 +315,71 @@ if (!isNode) {
   }
 
   function compareLists() {
+    // auto-detect strings and enable string mode if needed
+    const detectStringsInInput = (input) => {
+      return input.split("\n").some((line) => {
+        const normalizedLine = line.replace(/,/g, " ").trim();
+        if (!normalizedLine) return false;
+        
+        // get tokens that match IP patterns (what tokenizeLine returns when string mode is off)
+        const ipPattern = new RegExp(
+          [
+            "(?:\\d{1,3}\\.){3}\\d{1,3}/\\d{1,2}",
+            "(?:\\d{1,3}\\.){3}\\d{1,3}\\s*-\\s*(?:\\d{1,3}\\.){3}\\d{1,3}",
+            "(?:\\d{1,3}\\.){3}\\d{1,3}\\s*-\\s*\\d{1,3}",
+            "(?:\\d{1,3}\\.){3}\\d{1,3}",
+          ].join("|"),
+          "g"
+        );
+        const matchedTokens = [];
+        let match;
+        while ((match = ipPattern.exec(normalizedLine)) !== null) {
+          matchedTokens.push(match[0].trim());
+        }
+        
+        // check all parts of the line, including unmatched parts
+        const allParts = normalizedLine
+          .split(/[\s,]+/)
+          .map((t) => t.trim())
+          .filter((t) => t);
+        
+        // check if any part would be a string (not matched by IP patterns or would return [] from expandIPLine)
+        return allParts.some((part) => {
+          // if it's not in matched tokens, it's potentially a string
+          if (!matchedTokens.includes(part)) {
+            // check if it's covered by a longer matched token (like "-" in "10.10.9.1 - 10.10.9.4")
+            if (!matchedTokens.some((existing) => existing.length > part.length && existing.includes(part))) {
+              return true; // This is a string
+            }
+          }
+          // if part is covered by a matched token, don't check it individually
+          // only check full matched tokens to see if they're invalid
+          return false;
+        }) || matchedTokens.some((token) => wouldBeString(token));
+      });
+    };
+    
+    // auto-detect and adjust string mode (skip if user just manually toggled)
+    if (!skipAutoDetectStrings) {
+      const hasStrings = detectStringsInInput(inputA.value) || detectStringsInInput(inputB.value);
+      
+      // auto-adjust based on detection
+      if (hasStrings) {
+        // auto-enable if strings detected
+        if (!allowTextTokens?.classList.contains("on")) {
+          allowTextTokens.classList.add("on");
+          allowTextTokens.classList.remove("off");
+        }
+      } else {
+        // auto-disable if no strings detected
+        if (allowTextTokens?.classList.contains("on")) {
+          allowTextTokens.classList.remove("on");
+          allowTextTokens.classList.add("off");
+        }
+      }
+    }
+    skipAutoDetectStrings = false; // reset flag after this recalculation
+
     const listA = inputA.value
       .split("\n")
       .flatMap((line) => tokenizeLine(line.replace(/,/g, " ").trim()))
