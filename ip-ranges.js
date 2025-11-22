@@ -171,6 +171,9 @@ if (!isNode) {
     if (match) {
       const start = match[1].trim();
       const end = match[2].trim();
+      // check if range/string has spaces around hyphen (can't be a hostname)
+      const hasSpaces = /\s+-\s+/.test(token);
+      
       if (isValidIP(start) && isValidIP(end)) {
         const startInt = ipToInt(start);
         const endInt = ipToInt(end);
@@ -194,6 +197,10 @@ if (!isNode) {
         }
         return result;
       }
+      // if has spaces AND is not a valid IP range, it can't be a hostname, so return empty
+      if (hasSpaces) return [];
+      // if no spaces and NOT a valid IP range, it might be a hostname (if allowTextTokens is on)
+      if (allowTextTokens?.classList.contains("on")) return [token];
       return [];
     }
 
@@ -228,7 +235,14 @@ if (!isNode) {
       const extras = line
         .split(/[\s,]+/)
         .map((t) => t.trim())
-        .filter((t) => t && !tokens.includes(t)); // skip duplicates
+        .filter((t) => {
+          if (!t) return false;
+          // skip if already in tokens
+          if (tokens.includes(t)) return false;
+          // skip if already covered by a longer existing token (e.g., "-" is covered by "10.10.9.1 - 10.10.9.4")
+          if (tokens.some((existing) => existing.length > t.length && existing.includes(t))) return false;
+          return true;
+        });
       tokens.push(...extras);
     }
     // end TODO:hn
@@ -281,15 +295,24 @@ if (!isNode) {
 
     const process = (list) => {
       const seen = new Set();
-      return list
+      const items = list
         .map((ip) => ({ ip, int: ipToInt(ip) }))
-        .sort((a, b) => a.int - b.int)
         .filter((item) => {
           if (seen.has(item.ip)) return false;
           seen.add(item.ip);
           return true;
-        })
-        .map((item) => item.ip);
+        });
+      
+      // separate IPs from strings (strings have NaN as int)
+      const ips = items.filter((item) => !isNaN(item.int));
+      const strings = items.filter((item) => isNaN(item.int));
+      
+      // sort IPs by integer, strings alphabetically
+      ips.sort((a, b) => a.int - b.int);
+      strings.sort((a, b) => a.ip.localeCompare(b.ip));
+      
+      // combine: IPs first, then strings
+      return [...ips.map((item) => item.ip), ...strings.map((item) => item.ip)];
     };
 
     const inBoth = process(rawInBoth);
@@ -323,14 +346,25 @@ if (!isNode) {
 
     updateModeButtons();
 
-    const output =
-      displayMode === "ranges"
-        ? groupIntoRanges(selectedList).sort((a, b) => {
-            const startA = a.split("-")[0].trim();
-            const startB = b.split("-")[0].trim();
-            return ipToInt(startA) - ipToInt(startB);
-          })
-        : selectedList;
+    // separate IPs from strings
+    const ipItems = selectedList.filter((item) => !isNaN(ipToInt(item)));
+    const stringItems = selectedList.filter((item) => isNaN(ipToInt(item)));
+
+    let output;
+    if (displayMode === "ranges") {
+      // only process IPs into ranges, keep strings as-is
+      const ipRanges = groupIntoRanges(ipItems).sort((a, b) => {
+        const startA = a.split("-")[0].trim();
+        const startB = b.split("-")[0].trim();
+        return ipToInt(startA) - ipToInt(startB);
+      });
+      // sort strings alphabetically and append
+      const sortedStrings = stringItems.sort((a, b) => a.localeCompare(b));
+      output = [...ipRanges, ...sortedStrings];
+    } else {
+      // list mode: already sorted by process(), just sep IPs and strings for clarity
+      output = selectedList;
+    }
 
     results.innerHTML = output.join("<br />");
   }
